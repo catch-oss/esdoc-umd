@@ -1,50 +1,44 @@
-var through = require('through2');
-var ESDoc = require('esdoc').default;
-var gutil = require('gulp-util');
+'use strict';
 
-var fs = require('fs'),
-    path = require('path');
+exports.onHandleCode = function onHandleCode(ev) {
+    var varCount = -1,
+        code = ev.data.code,
+        title = ev.data.filePath,
+        matched = false,
+        lastPosition,
+        endMatch = '}));';
 
-const PLUGIN_NAME = 'gulp-esdoccr';
+    matched = /\;\(function[ \t]*\(root, factory\)/.test(code);
 
-function gulpESDoc(config) {
-  if (!config) {
-    var cfgPath = path.join(process.cwd(), 'esdoc.json'),
-        data;
+    // we found a UMD style module - do the thing
+    if (matched) {
 
-    if (fs.existsSync(cfgPath)) {
-      data = fs.readFileSync(cfgPath, { encoding: 'utf8' });
-      config = !data ? {} : JSON.parse(data);
-    } else {
-      config  = {};
+        // grab the filename from path
+        title = title.split("/").pop();
+
+        // remove the '.js'
+        title = title.split(".")[0];
+
+        // borrowed from https://stackoverflow.com/questions/6660977/convert-hyphens-to-camel-case-camelcase
+        // transforms kebab to camelcase
+        title = title.replace(/-([a-z])/g, function (g) { return g[1].toUpperCase(); });
+
+        // set the start of the file to be a named function so we get some hinting
+        // transform the start of the UMD style module
+        code = code.replace(
+            /\;\(function[ \t]*\(root, factory\)[ \t]*\{([\s\S])*\}\(this,[ \t]*function([\s\S])*?\)[ \t]{/,
+            'function ' + title + '() {'
+        );
+
+        // replace the end of the UMD function
+        lastPosition = code.lastIndexOf(endMatch);
+
+        // cut based on end of file, replace
+        code = code.slice(0, lastPosition) +
+            code.slice(lastPosition)
+            .replace(endMatch, '};\nexport default ' + title + ';');
+
+        ev.data.code = code;
     }
-  }
 
-  var transform = function(file, encode, callback) {
-
-    if (!config.destination) {
-      this.emit('error', new gutil.PluginError(PLUGIN_NAME, 'Must specify config.destination'));
-      return callback();
-    }
-
-    if (file.isStream()) {
-      this.emit('error', new gutil.PluginError(PLUGIN_NAME, 'Streaming not supported'));
-      return callback();
-    }
-
-    config.source = config.source || file.path;
-
-    callback();
-  };
-
-  var flush = function(callback) {
-    ESDoc.generate(config);
-    callback();
-  };
-
-  return through.obj(transform, flush);
-
-}
-
-// Export
-module.exports = gulpESDoc;
+};
