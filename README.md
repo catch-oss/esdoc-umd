@@ -1,7 +1,9 @@
 # esdoc-umd
 
-An esdoc module.
+An esdoc module. Attempts to rewrite UMD style modules so esdoc can parse them.
 
-Rewrites UMD style modules so esdoc can parse them.
+An esdoc compatible docblock comment at the top of the file is required to render usage information in esdoc.
 
-Modules will require an esdoc compatible docblock comment to correctly render usage information in esdoc.
+If the module is not being loaded by esdoc, ensure the end statement for the document is formatted as below:
+
+`}));`
